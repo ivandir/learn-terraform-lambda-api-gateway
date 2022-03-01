@@ -1,3 +1,4 @@
+import boto
 import os, json
 
 def lambda_handler(event, context):

@@ -23,7 +23,7 @@ provider "aws" {
 
 resource "random_pet" "lambda_bucket_name" {
   prefix = "learn-terraform-functions"
-  length = 4
+  length = 2
 }
 
 resource "aws_s3_bucket" "lambda_bucket" {
@@ -83,6 +83,36 @@ resource "aws_lambda_function" "hello_world_js" {
   role = aws_iam_role.lambda_exec.arn
 }
 
+data "archive_file" "lambda_python_boto_layer" {
+  type = "zip"
+
+  source_dir  = "${path.module}/lambda-layers/python-layers/"
+  output_path = "${path.module}/lambda-layers/boto.zip"
+}
+
+resource "aws_s3_object" "lambda_python_boto_layer" {
+  bucket = aws_s3_bucket.lambda_bucket.id
+
+  key    = "boto.zip"
+  source = data.archive_file.lambda_python_boto_layer.output_path
+
+  etag = filemd5(data.archive_file.lambda_python_boto_layer.output_path)
+}
+
+resource "aws_lambda_layer_version" "lambda_python_boto_layer" {
+  s3_bucket = aws_s3_bucket.lambda_bucket.id
+  s3_key    = aws_s3_object.lambda_python_boto_layer.key
+
+  layer_name = "boto2-test"
+
+  compatible_architectures = ["x86_64"]
+  compatible_runtimes = ["python3.9"]
+
+  source_code_hash = data.archive_file.lambda_python_boto_layer.output_base64sha256
+  
+  description = "boto package layer for Python 3.9"
+}
+
 resource "aws_lambda_function" "hello_world_python" {
   function_name = "HelloWorldPython"
 
@@ -93,6 +123,8 @@ resource "aws_lambda_function" "hello_world_python" {
   handler = "hello.lambda_handler"
 
   source_code_hash = data.archive_file.lambda_hello_world_python.output_base64sha256
+
+  layers = [aws_lambda_layer_version.lambda_python_boto_layer.arn]
 
   role = aws_iam_role.lambda_exec.arn
 
