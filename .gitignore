@@ -39,3 +39,5 @@ response.json
 *.zip
 
 lambda-layers/python-layers/python/*
+
+.swp
